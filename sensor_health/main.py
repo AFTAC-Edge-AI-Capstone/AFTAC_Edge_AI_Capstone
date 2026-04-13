@@ -1,3 +1,4 @@
+from random import random
 import numpy as np
 import pandas as pd
 from sklearn.model_selection import train_test_split
@@ -8,8 +9,8 @@ from matplotlib import pyplot as plt
 pd.set_option('display.max_columns', None)
 
 WINDOW = 30
-MAX_RUL = 130
-EPOCHS = 50
+MAX_RUL = 110
+EPOCHS = 35
 DATASETS = [1]
 
 # ---------------------
@@ -42,6 +43,13 @@ for i in DATASETS:
 train.rename(columns={0: 'unit', 1: 'time'}, inplace=True)
 test.rename(columns={0: 'unit', 1: 'time'}, inplace=True)
 
+data_max_window = min(
+    train.groupby('unit')['time'].max().min(),
+    test.groupby('unit')['time'].max().min()
+)
+if data_max_window < WINDOW:
+    print(f'Window too small for data (actual {data_max_window}, requested {WINDOW})')
+
 # ---------------------------------------
 # Build windows for training and testing
 # ---------------------------------------
@@ -58,16 +66,20 @@ def build_sequences(df, test=False):
 
         if test:
             rul = np.clip(RUL[0][unit-1], 0, MAX_RUL) / MAX_RUL
-            X.append(features[len(features) - WINDOW - 1:])
+            X.append(features[-WINDOW:])
+            X.append(features[-WINDOW-1:-1])
             y.append(rul)
         else:
             rul = np.arange(len(features) - 1, -1, -1)
 
-            # Clip + normalize
-            rul = np.clip(rul, 0, MAX_RUL)
-            rul = rul / MAX_RUL
+            rul = np.clip(rul, 0, MAX_RUL) / MAX_RUL
 
-            for i in range(len(features) - WINDOW):
+            max_start = len(features) - WINDOW
+            for i in range(max_start):
+                # if random() > i * (i - max_start) / (max_start / 2) ** 2 + 1:
+                #     continue
+                if rul[i+WINDOW] > 0.99:
+                    continue
                 X.append(features[i:i+WINDOW])
                 y.append(rul[i+WINDOW])
                 units.append(unit)
@@ -118,30 +130,25 @@ from tensorflow.keras.layers import BatchNormalization, Conv1D, Dense, Dropout, 
 # -----------------
 
 model = Sequential([
-    Conv1D(filters=64, kernel_size=3, activation='relu', input_shape=(WINDOW, num_features)),
+    Conv1D(filters=32, kernel_size=3, activation='relu', input_shape=(WINDOW, num_features)),
     BatchNormalization(),
     MaxPooling1D(pool_size=2),
     Dropout(0.5),
 
-    Conv1D(filters=128, kernel_size=3, activation='relu'),
-    BatchNormalization(),
-    MaxPooling1D(pool_size=2),
-    Dropout(0.5),
-
-    Conv1D(filters=128, kernel_size=3, activation='relu'),
+    Conv1D(filters=32, kernel_size=3, activation='relu'),
     BatchNormalization(),
     MaxPooling1D(pool_size=2),
     Dropout(0.5),
 
     Flatten(),
 
-    Dense(64, activation='relu'),
+    Dense(32, activation='relu'),
     Dropout(0.5),
 
     Dense(1)
 ])
 
-model.compile(optimizer='adam', loss='mse', metrics=['mae'])
+model.compile(optimizer='adam', loss='mae', metrics=['mse'])
 model.summary()
 
 # -------------------------
@@ -161,7 +168,8 @@ model.fit(
 # Predict using the test data
 # ----------------------------
 
-pred_y = model.predict(test_X).flatten() * MAX_RUL
+pred_y = model.predict(test_X).flatten().reshape(-1, 2).mean(axis=1) * MAX_RUL - 0.5
+# pred_y = model.predict(test_X).flatten() * MAX_RUL
 true_y = test_y * MAX_RUL
 
 rmse = np.sqrt(mean_squared_error(true_y, pred_y))
