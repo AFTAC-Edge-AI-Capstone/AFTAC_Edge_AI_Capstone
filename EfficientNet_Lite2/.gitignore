@@ -1,0 +1,9 @@
+.DS_Store
+__pycache__/
+*.pyc
+
+# Local ImageNet data should be obtained separately and rebuilt locally
+ILSVRC2012_img_val/
+imagenet_val_structured/
+ILSVRC2012_devkit_t12/
+quantization_calibration_npzs/
