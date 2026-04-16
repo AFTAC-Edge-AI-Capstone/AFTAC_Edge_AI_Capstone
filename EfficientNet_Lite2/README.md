@@ -50,6 +50,34 @@ The important result in this workflow is:
 
 The pre-quantized FP32 ONNX baseline was not benchmarked on STM32N6570-DK because it was not deployable within the target memory/runtime footprint.
 
+### 3. Reference Comparison Against CSWin-Tiny
+
+As a reference point, CSWin-Tiny loaded from the pretrained `cswin_tiny_224.pth` checkpoint produced stronger host-side accuracy, but it also came with a much larger resource footprint.
+
+| Metric | CSWin-Tiny Reference | EfficientNet-Lite2 Quantized Reference |
+|---|---:|---:|
+| Top-1 Accuracy | 82.82% | 76.01% |
+| Top-5 Accuracy | 96.30% | 92.96% |
+| Float ONNX Size | 87.461 MB | N/A |
+| Quantized / Deployed Model Size Reference | N/A | 6.880 MB ONNX |
+| Weight Memory Reference | 85.148 MB float | 7.227 MB quantized weight blob |
+| Host Throughput Reference | 6.13 img/s | 134.65 img/s |
+| Host Latency Reference | 163.15 ms/img | N/A |
+| Board Deployability | Unknown from host-side proxy run alone | Confirmed on STM32N6570-DK |
+
+The important comparison is not that CSWin-Tiny failed, but that it pushes the resource cost much higher:
+- CSWin-Tiny float ONNX size was about 12.7x larger than the locally quantized EfficientNet-Lite2 ONNX model
+- CSWin-Tiny estimated float weight memory was about 11.8x larger than the EfficientNet-Lite2 quantized deployed weight blob
+- CSWin-Tiny host-side throughput in the reported proxy run was much lower than the reported EfficientNet-Lite2 quantized host-side throughput
+
+At the same time, the CSWin-Tiny numbers in this directory should be treated as a reference comparison, not a board-valid deployment result.
+
+The reason is:
+- the reported CSWin-Tiny results came from a host-side / proxy workflow
+- quantized CSWin-Tiny numbers were not available in this comparison
+- deployability on STM32N6570-DK was not established from the host-side run alone
+- a board-valid result would still require successful ST analysis and target deployment
+
 ## Local Quantization Methodology
 
 The local quantization step in this directory was not performed by ST Edge AI itself.
