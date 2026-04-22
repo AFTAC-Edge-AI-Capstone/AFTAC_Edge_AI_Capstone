@@ -1,0 +1,3 @@
+WINDOW = 30
+MAX_RUL = 130
+DATASETS = [1]
