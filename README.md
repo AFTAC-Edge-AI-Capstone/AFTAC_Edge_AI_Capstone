@@ -14,9 +14,27 @@ This project focuses on the development of a simulated multi-modal AI system des
 
 ## Setup
 ### EffecientAT audio model pipeline
+Go to directory
+```bash 
 cd audio
-python3 -m venv .venv
-source .venv/bin/activate
-pip install -r requirements.txt
+```
 
+Create the virtual environment:
+```bash
+python -m venv .venv
+```
+
+Activate it:
+```bash
+source .venv/bin/activate
+```
+
+Install the required packages:
+```bash
+pip install -r requirements.txt
+```
+
+Run benchmark on best model
+```bash
 python3 benchmark-tflite.py models/aircraft_mn05_classifier_float16.tflite
+```
