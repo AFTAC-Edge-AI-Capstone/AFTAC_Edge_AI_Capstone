@@ -12,8 +12,31 @@ This project focuses on the development of a simulated multi-modal AI system des
 ### Sponsor / Mentor
 - AFTAC
 
-## Audio
+## EffecientAT Audio Model
+Go to directory
+```bash 
+cd audio
+```
 
+Create the virtual environment:
+```bash
+python -m venv .venv
+```
+
+Activate it:
+```bash
+source .venv/bin/activate
+```
+
+Install the required packages:
+```bash
+pip install -r requirements.txt
+```
+
+Run benchmark on best model
+```bash
+python3 benchmark-tflite.py models/aircraft_mn05_classifier_float16.tflite
+```
 
 ## Vision
 For information on the vision model, see [EfficientNet_Lite2/README.md](./EfficientNet_Lite2/README.md)
