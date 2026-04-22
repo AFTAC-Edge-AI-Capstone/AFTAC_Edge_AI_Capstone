@@ -47,7 +47,7 @@ This model predicts the remaining useful life of engines given data from sensors
 Its dependencies are managed using [uv](https://github.com/astral-sh/uv).
 When running a file with `uv run`, the dependencies will be automatically installed.
 
-Some aspects of the model are configured via constants in [train.py](./sensor_health/train.py).
+Some aspects of the model are configured via constants in [config.py](./sensor_health/config.py).
 These include the window size, the maximum RUL, and the dataset(s) to train/test on.
 
 To train the baseline model, use `uv run train.py`.
