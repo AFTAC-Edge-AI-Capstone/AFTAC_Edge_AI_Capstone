@@ -1,6 +1,6 @@
 # Multi-Modal Edge AI Optimization for Resource-Constrained Devices
 
-### Project Description
+## Project Description
 This project focuses on the development of a simulated multi-modal AI system designed for deployment on a power and compute-constrained edge device. The core objective is to train, prune, and quantize three distinct machine learning models: video object detection, audio classification, and sensor health monitoring—while rigorously evaluating the trade-offs between predictive accuracy, model size, and inference latency.
 
 ### Team Members
@@ -12,7 +12,9 @@ This project focuses on the development of a simulated multi-modal AI system des
 ### Sponsor / Mentor
 - AFTAC
 
-## EffecientAT Audio Model
+## Setup
+
+### EffecientAT Audio Model
 Go to directory
 ```bash 
 cd audio
@@ -38,10 +40,10 @@ Run benchmark on best model
 python3 benchmark-tflite.py models/aircraft_mn05_classifier_float16.tflite
 ```
 
-## Vision
+### Vision
 For information on the vision model, see [EfficientNet_Lite2/README.md](./EfficientNet_Lite2/README.md)
 
-## Sensor Health
+### Sensor Health
 The sensor health model is contained in [sensor_health](./sensor_health/).
 This model predicts the remaining useful life of engines given data from sensors.
 Its dependencies are managed using [uv](https://github.com/astral-sh/uv).
