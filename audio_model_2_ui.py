@@ -1,3 +1,8 @@
+import streamlit as st
+from playsound3 import playsound
+import random
+import tensorflow as tf
+
 # Based on multiple python files sent by Eddie including these: W_AST_TrainingWcomments.py and W_AST_Distill_To_EffNet.py
 # Modified by Aaron Mathews
 import os
@@ -32,13 +37,13 @@ AUDIO_EXTENSIONS = ['*.wav']
 
 # Configuration and data locations
 DATA_DIRS = {
-    "Neg": "modified_datasets/neg", # Directory containing negative (Noise/Background) samples (Label 0.0)
-    "Drone": "modified_datasets/drone",
-    "Piston": "modified_datasets/piston",
-    "Turbofan": "modified_datasets/turbofan",
-    "Turboprop": "modified_datasets/turboprop",
+    "Neg": "./ast/modified_datasets/neg", # Directory containing negative (Noise/Background) samples (Label 0.0)
+    "Drone": "./ast/modified_datasets/drone",
+    "Piston": "./ast/modified_datasets/piston",
+    "Turbofan": "./ast/modified_datasets/turbofan",
+    "Turboprop": "./ast/modified_datasets/turboprop",
 
-    "Turboshaft": "modified_datasets/turboshaft"
+    "Turboshaft": "./ast/modified_datasets/turboshaft"
 }
 
 LABEL_MAP = {
@@ -48,6 +53,15 @@ LABEL_MAP = {
     "Turbofan": 3,
     "Turboprop": 4,
     "Turboshaft": 5
+}
+
+CLASS_TO_LABEL = {
+    0: "No aircraft",
+    1: "Drone",
+    2: "Piston",
+    3: "Turbofan",
+    4: "Turboprop",
+    5: "Turboshaft"
 }
 
 class AudioAugmenter:
@@ -177,7 +191,14 @@ STUDENT_MODEL_NAME = 'efficientnet_b0'
 DISTILLATION_TEMP = 2.0    # Temperature T for softening Teacher logits
 DISTILLATION_ALPHA = 0.7 # Weight for KD loss (0.7 * KD Loss + 0.3 * BCE Loss)
 TARGET_AUDIO_SECONDS = 10.24 # 10.24 seconds like AST
-STUDENT_CHECKPOINT_PATH = "best_student_checkpoint.pt" # PATH TO SAVE THE TRAINED CNN STUDENT!!!!!!!!!<---------
+STUDENT_CHECKPOINT_PATH = "./ast/best_student_checkpoint.pt" # PATH TO SAVE THE TRAINED CNN STUDENT!!!!!!!!!<---------
+
+
+if "random_samples" not in st.session_state:
+    st.session_state.random_samples = []
+
+if "random_samples_labels" not in st.session_state:
+    st.session_state.random_samples_labels = []
 
 def load_data_paths_and_labels():
     """Load file paths, assign labels, split into train/val, and calculate class weights."""
@@ -239,7 +260,7 @@ def load_data_paths_and_labels():
     print(f"Turboshaft Count: {int(turboshaft_count)} samples")
     print(f"{'='*70}\n")
 
-    return train_data, val_data, torch.tensor([neg_weight, drone_weight, piston_weight, turbofan_weight, turboprop_weight, turboshaft_weight], dtype=torch.float32)
+    return test_files, test_labels, train_data, val_data, torch.tensor([neg_weight, drone_weight, piston_weight, turbofan_weight, turboprop_weight, turboshaft_weight], dtype=torch.float32)
 
 class EfficientNetSpectrogramStudent(nn.Module):
     """
@@ -279,101 +300,178 @@ class EfficientNetSpectrogramStudent(nn.Module):
     def forward(self, input_values: torch.Tensor, **kwargs) -> torch.Tensor:
         return self.efficientnet(input_values)
 
-def validate(model, val_dataloader, compressed=False):
-    model.eval()
+def validate_tflite_model(val_dataloader):
+    interpreter = tf.lite.Interpreter(model_path="./ast/quantized_model.tflite")
+    interpreter.allocate_tensors()
+    input_index = interpreter.get_input_details()[0]['index']
+
     correct = 0
     total = 0
 
     predictions = []
     labels = []
 
-    with torch.no_grad():
-        for batch in val_dataloader:
-            input_data = {k: v.to(device) for k, v in batch.items()}
+    
+    for batch in val_dataloader:
+        input_data = {k: v for k, v in batch.items()}
 
-            # Use device.type as a POSITIONAL argument for autocast
-            # with autocast(device.type, dtype=torch.float16):
-            #     student_logits = model(input_data['input_values'])
+        # print(input_data['input_values'].shape)
 
-            student_logits = model(input_data['input_values'])
+        input_numpy = input_data['input_values'].numpy()
 
-            curr_predictions = torch.argmax((torch.sigmoid(student_logits)), dim=1).long().flatten()
-            curr_labels = input_data['labels'].long().flatten()
 
-            predictions.append(curr_predictions.detach().cpu())
-            labels.append(curr_labels.detach().cpu())
+        input_index = interpreter.get_input_details()[0]['index']
+        interpreter.set_tensor(input_index, input_numpy)
+        interpreter.invoke()
 
-            for i in range(len(curr_predictions)):
-                if curr_predictions[i] == curr_labels[i]:
-                    correct += 1
-            total += curr_labels.size(0)
+        output = interpreter.get_tensor(interpreter.get_output_details()[0]['index'])
+        curr_predictions = np.argmax(output, axis=1).astype(int).flatten()
+
+        curr_labels = input_data['labels'].long().flatten()
+
+        predictions.append(curr_predictions)
+        labels.append(curr_labels)
+
+        for i in range(len(curr_predictions)):
+            if curr_predictions[i] == curr_labels[i]:
+                correct += 1
+        total += curr_labels.size(0)
+        # print(output)
+
+    fig, ax = plt.subplots(figsize=(10, 4))
+
+    # print(labels)
+    # print(predictions)
+
+    c = confusion_matrix(np.concatenate(labels), np.concatenate(predictions))
+    data_labels = ["Negative", "Drone", "Piston", "Turbofan", "Turboprop", "Turboshaft"]
+    sns.heatmap(c, annot=True, fmt='d', xticklabels=data_labels, yticklabels=data_labels, ax=ax)
+    plt.title("Aircraft Classifier 2 (Float16 Quantized Version)")
+    st.pyplot(fig)
+        
 
     val_accuracy = correct / total if total > 0 else 0
 
-    # print(labels)
-    # print(torch.cat(labels).numpy())
-    # print(predictions)
-    print(total)
-    print(f"Accuracy: {val_accuracy}")
-    c = confusion_matrix(torch.cat(labels).numpy(), torch.cat(predictions).numpy())
-    data_labels = ["Negative", "Drone", "Piston", "Turbofan", "Turboprop", "Turboshaft"]
-    sns.heatmap(c, annot=True, fmt='d', xticklabels=data_labels, yticklabels=data_labels)
-    filename = ""
-    if compressed:
-        filename = "compressed_results.png"
-    else:
-        filename = "uncompressed_results.png"
-    plt.savefig(filename, dpi=300, bbox_inches='tight')
-    print(c)
+    print(predictions)
+    print(labels)
+    st.write(f"Accuracy: {val_accuracy}")
+
+def get_random_audio_samples():
+    st.session_state.random_samples.clear()
+    st.session_state.random_samples_labels.clear()
+    for i in range(4):
+        random_index = random.randint(0, len(test_files) - 1)
+        st.session_state.random_samples.append(test_files[random_index])
+        st.session_state.random_samples_labels.append(test_labels[random_index])
 
 if __name__ == '__main__':
+# def render()
+    # test_files = []
+    # test_labels = []
 
-    student_model_uncompressed = EfficientNetSpectrogramStudent(STUDENT_MODEL_NAME, num_classes=6).to(device)
+    # random_samples = []
+    # random_samples_labels = []
 
-    student_checkpoint_uncompressed = torch.load('best_student_checkpoint.pt')
-    student_model_uncompressed.load_state_dict(student_checkpoint_uncompressed['model_state_dict'])
+    student_model = EfficientNetSpectrogramStudent(STUDENT_MODEL_NAME, num_classes=6).to(device)
 
-    # print(student_checkpoint_uncompressed[''])
+    student_checkpoint_uncompressed = torch.load('./ast/best_student_checkpoint.pt')
+    student_model.load_state_dict(student_checkpoint_uncompressed['model_state_dict'])
 
-    train_data_paths, val_data_paths, class_weights = load_data_paths_and_labels()
+    test_files, test_labels, train_data_paths, val_data_paths, class_weights = load_data_paths_and_labels()
     
     # Feature Exatactor
     feature_extractor = AutoFeatureExtractor.from_pretrained(AST_MODEL_NAME)
 
     val_dataset = AudioDataset(val_data_paths, feature_extractor.sampling_rate, augment=False)
 
-
     val_dataloader = DataLoader(
         val_dataset, batch_size=BATCH_SIZE, shuffle=False,
-        collate_fn=lambda b: collate_fn_fsspec_free(b, feature_extractor), num_workers=0
+        collate_fn=lambda b: collate_fn_fsspec_free(b, feature_extractor), num_workers=0, drop_last=True
     )
     
-    validate(student_model_uncompressed, val_dataloader)
+    
 
-    # Validate after pruning
-    compressed_model = EfficientNetSpectrogramStudent('efficientnet_b0', num_classes=6).to(device)
-    compressed_model.load_state_dict(student_checkpoint_uncompressed['model_state_dict'])
-    example_inputs = torch.randn(1, 1, 224, 224).to(device)
+    st.title("AFTAC Edge AI UI")
+    st.button("Choose random audio samples (4 random audio samples will be chosen)", on_click=get_random_audio_samples, args=())
 
-    importance =  tp.importance.GroupMagnitudeImportance(p=2)
+    st.button("Play Sound 1", on_click=lambda: playsound(st.session_state.random_samples[0]))
+    st.button("Play Sound 2", on_click=lambda: playsound(st.session_state.random_samples[1]))
+    st.button("Play Sound 3", on_click=lambda: playsound(st.session_state.random_samples[2]))
+    st.button("Play Sound 4", on_click=lambda: playsound(st.session_state.random_samples[3]))
+    
+    print(len(st.session_state.random_samples))
 
-    pruner = tp.pruner.BasePruner(
-        compressed_model,
-        example_inputs,
-        importance=importance,
-        pruning_ratio=0.05
+    # Get labels
+    
+
+
+    # Button to choose random audio sample
+    # print(test_files)
+    # print(test_labels)
+
+    waveforms = []
+    target_length = math.ceil(feature_extractor.sampling_rate * TARGET_AUDIO_SECONDS)
+    for i in range(4):
+        waveform, sr = librosa.load(st.session_state.random_samples[i], sr=feature_extractor.sampling_rate, mono=True)
+
+        # --- PADDING/CLIPPING TO 10.24 SECONDS ---
+        if waveform.size < target_length:
+            # Pad short audio
+            padding = target_length - waveform.size
+            waveform = np.pad(waveform, (0, padding), 'constant')
+        else:
+            # Clip longer audio to the exact target length (10.24s)
+            waveform = waveform[:target_length]
+        waveforms.append(waveform)
+    
+    inputs = feature_extractor(
+        waveforms,
+        sampling_rate=feature_extractor.sampling_rate,
+        return_tensors="pt",
+        padding=True,
     )
 
-    initial_macs, initial_params = tp.utils.count_ops_and_params(compressed_model, example_inputs)
-    print(f"Initial MACs: {initial_macs}, Initial Params: {initial_params}")
-    pruner.step()
-    final_macs, final_params = tp.utils.count_ops_and_params(compressed_model, example_inputs)
-    print(f"Final MACs: {final_macs}, Final Params: {final_params}")
+    # Generate attention mask for AST (includes CLS token)
+    if 'attention_mask' not in inputs:
+        # AST attention mask is always one position longer than the spectrogram patches
+        num_patches = inputs['input_values'].shape[-1]
+        sequence_length = num_patches + 1
+        inputs['attention_mask'] = torch.ones(
+            (inputs['input_values'].shape[0], sequence_length),
+            dtype=torch.long
+        )
 
-    validate(compressed_model, val_dataloader)
-    # Can use scikit learn
-    # Accuracy
+    inputs['labels'] = torch.tensor(st.session_state.random_samples_labels, dtype=torch.float32).unsqueeze(1)
 
+    # Add a channel dimension for the CNN student: (B, F, T) -> (B, 1, F, T)
+    inputs['input_values'] = inputs['input_values'].unsqueeze(1)
 
+    input_numpy = inputs['input_values'].numpy()
 
-    # Confusion Matrix maybe
+    interpreter = tf.lite.Interpreter(model_path="./ast/quantized_model.tflite")
+    interpreter.allocate_tensors()
+    input_index = interpreter.get_input_details()[0]['index']
+
+    input_index = interpreter.get_input_details()[0]['index']
+    interpreter.set_tensor(input_index, input_numpy)
+    interpreter.invoke()
+
+    output = interpreter.get_tensor(interpreter.get_output_details()[0]['index'])
+    curr_predictions = np.argmax(output, axis=1).astype(int).flatten()
+
+    curr_labels = inputs['labels'].long().flatten()
+
+    model_predictions = curr_predictions.tolist()
+    actual_labels = curr_labels.tolist()
+
+    # Model prediction
+    st.header("Model Predictions vs Labels")
+
+    results_table = [["Sample", "Model Prediction", "Label"]]
+    for i in range(4):
+        results_table.append([i, CLASS_TO_LABEL[model_predictions[i]], CLASS_TO_LABEL[actual_labels[i]]])
+    
+    st.table(results_table)
+
+    st.button("Validate full model", on_click=validate_tflite_model, args=(val_dataloader,))
+

@@ -144,7 +144,7 @@ if __name__ == '__main__':
     student_model.load_state_dict(student_checkpoint_uncompressed['model_state_dict'])
 
     student_model_eval_mode = student_model.eval()
-    sample_input = (torch.randn(1, 1, 224, 224),)
+    sample_input = (torch.randn(4, 1, 1024, 128),)
 
     flags = {
         "optimizations": [tf.lite.Optimize.DEFAULT],

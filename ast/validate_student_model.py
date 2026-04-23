@@ -23,6 +23,7 @@ from sklearn.metrics import confusion_matrix, ConfusionMatrixDisplay
 import seaborn as sns
 import matplotlib.pyplot as plt
 import torch_pruning as tp
+import tensorflow as tf
 
 
 # device = torch.device("cuda" if torch.cuda.is_available() else "cpu")
@@ -291,6 +292,7 @@ def validate(model, val_dataloader):
         for batch in val_dataloader:
             input_data = {k: v.to(device) for k, v in batch.items()}
 
+            print(input_data['input_values'].shape)
             # Use device.type as a POSITIONAL argument for autocast
             with autocast(device.type, dtype=torch.float16):
                 student_logits = model(input_data['input_values'])
@@ -310,12 +312,100 @@ def validate(model, val_dataloader):
 
     print(total)
     print(f"Accuracy: {val_accuracy}")
+
     c = confusion_matrix(torch.cat(labels).numpy(), torch.cat(predictions).numpy())
     data_labels = ["Negative", "Drone", "Piston", "Turbofan", "Turboprop", "Turboshaft"]
     sns.heatmap(c, annot=True, fmt='d', xticklabels=data_labels, yticklabels=data_labels)
     plt.title("Aircraft Classifier 2: Fine-tuning -> knowledge distillation -> AMP")
     plt.savefig("results.png", dpi=300, bbox_inches='tight')
     print(c)
+
+    # Find precision and recall by class
+
+    
+    
+
+    predictions = torch.cat(predictions)
+    labels = torch.cat(labels)
+
+    # We have 6 rows, each are formatted like this: [tp, fp, fn]
+    precision_recall_array = np.zeros((6, 3))
+
+    for i in range(len(predictions)):
+        prediction = predictions[i].item()
+        label = labels[i].item()
+        if prediction == label:
+            # If the prediction matches the label, then we have a true positive
+            precision_recall_array[prediction][0] += 1
+        else:
+            # If the prediction and label don't match, then...
+            # We have one more false positive for the predicted class
+            # We have one more false negative for the labelled class
+            precision_recall_array[prediction][1] += 1
+            precision_recall_array[label][2] += 1
+
+    print("Printing precision and recall by class \n")
+    print(f"Negative class, precision: {precision_recall_array[0][0]/(precision_recall_array[0][0] + precision_recall_array[0][1])}, recall: {precision_recall_array[0][0]/(precision_recall_array[0][0] + precision_recall_array[0][2])} \n")
+    print(f"Drone class, precision: {precision_recall_array[1][0]/(precision_recall_array[1][0] + precision_recall_array[1][1])}, recall: {precision_recall_array[1][0]/(precision_recall_array[1][0] + precision_recall_array[1][2])} \n")
+    print(f"Piston class, precision: {precision_recall_array[2][0]/(precision_recall_array[2][0] + precision_recall_array[2][1])}, recall: {precision_recall_array[2][0]/(precision_recall_array[2][0] + precision_recall_array[2][2])} \n")
+    print(f"Turbofan class, precision: {precision_recall_array[3][0]/(precision_recall_array[3][0] + precision_recall_array[3][1])}, recall: {precision_recall_array[3][0]/(precision_recall_array[3][0] + precision_recall_array[3][2])} \n")
+    print(f"Turboprop class, precision: {precision_recall_array[4][0]/(precision_recall_array[4][0] + precision_recall_array[4][1])}, recall: {precision_recall_array[4][0]/(precision_recall_array[4][0] + precision_recall_array[4][2])} \n")
+    print(f"Turboshaft class, precision: {precision_recall_array[5][0]/(precision_recall_array[5][0] + precision_recall_array[5][1])}, recall: {precision_recall_array[5][0]/(precision_recall_array[5][0] + precision_recall_array[5][2])} \n")
+
+
+    # # Find micro averages
+    # precision_micro_avg = 
+    # recall_micro_avg = 0
+
+    # # Find macro averages
+    # precision_macro_avg = 0
+    # recall_macro_avg = 0
+
+def validate_tflite_model(val_dataloader):
+    
+    interpreter = tf.lite.Interpreter(model_path="quantized_model.tflite")
+    interpreter.allocate_tensors()
+    input_index = interpreter.get_input_details()[0]['index']
+
+    correct = 0
+    total = 0
+
+    predictions = []
+    labels = []
+
+    
+    for batch in val_dataloader:
+        input_data = {k: v for k, v in batch.items()}
+
+        # print(input_data['input_values'].shape)
+
+        input_numpy = input_data['input_values'].numpy()
+        print(input_numpy.shape)
+
+
+        input_index = interpreter.get_input_details()[0]['index']
+        interpreter.set_tensor(input_index, input_numpy)
+        interpreter.invoke()
+
+        output = interpreter.get_tensor(interpreter.get_output_details()[0]['index'])
+        curr_predictions = np.argmax(output, axis=1).astype(int).flatten()
+
+        curr_labels = input_data['labels'].long().flatten()
+
+        predictions.append(curr_predictions)
+        labels.append(curr_labels)
+
+        for i in range(len(curr_predictions)):
+            if curr_predictions[i] == curr_labels[i]:
+                correct += 1
+        total += curr_labels.size(0)
+        # print(output)
+
+    val_accuracy = correct / total if total > 0 else 0
+
+    print(total)
+    print(f"Accuracy: {val_accuracy}")
+
 
 if __name__ == '__main__':
 
@@ -336,5 +426,16 @@ if __name__ == '__main__':
         val_dataset, batch_size=BATCH_SIZE, shuffle=False,
         collate_fn=lambda b: collate_fn_fsspec_free(b, feature_extractor), num_workers=0
     )
+
+    tflite_val_dataloader = DataLoader(
+        val_dataset, batch_size=4, shuffle=False,
+        collate_fn=lambda b: collate_fn_fsspec_free(b, feature_extractor), num_workers=0,
+        drop_last=True
+    )
     
-    validate(student_model, val_dataloader)
+    # validate(student_model, val_dataloader)
+
+
+
+    validate_tflite_model(tflite_val_dataloader)
+
