@@ -1,11 +1,11 @@
 import numpy as np
 import tensorflow as tf
-import tensorflow_model_optimization as tfmot
+import tflite as tflite
 from utils import load_data
 from matplotlib import pyplot as plt
-from config import DATASETS, MAX_RUL, WINDOW
+from config import DATASETS, WINDOW, MAX_RUL
 
-train_X, val_X, test_X, train_y, val_y, test_y, num_features = load_data(DATASETS, WINDOW, MAX_RUL)
+train_X, val_X, test_X, train_y, val_y, test_y, num_features = load_data(DATASETS, WINDOW, MAX_RUL, "data")
 
 def representative_dataset():
     for i in range(100):
@@ -34,58 +34,18 @@ converter.representative_dataset = representative_dataset
 
 tflite_int8_model = converter.convert()
 
+with open("models/maintenance_model_int8.tflite", "wb") as f:
+    f.write(tflite_int8_model)
+
 # -------------------------------
 # Load and set up for prediction
 # -------------------------------
 
-with open("models/maintenance_model_int8.tflite", "wb") as f:
-    f.write(tflite_int8_model)
-
-interpreter = tf.lite.Interpreter(model_path="models/maintenance_model_int8.tflite")
-interpreter.allocate_tensors()
-
-input_details = interpreter.get_input_details()
-output_details = interpreter.get_output_details()
-
-def quantize_input(x, input_details):
-    scale, zero_point = input_details[0]["quantization"]
-    
-    x = x.astype(np.float32)
-    x_q = x / scale + zero_point
-    return x_q.astype(np.int8)
-
-def dequantize_output(y, output_details):
-    scale, zero_point = output_details[0]["quantization"]
-    
-    y = y.astype(np.float32)
-    return (y - zero_point) * scale
-
-def tflite_predict(X):
-    preds = []
-
-    for i in range(len(X)):
-        x = X[i:i+1]
-
-        # Quantize input
-        x_q = quantize_input(x, input_details)
-
-        interpreter.set_tensor(input_details[0]["index"], x_q)
-        interpreter.invoke()
-
-        y_q = interpreter.get_tensor(output_details[0]["index"])
-        y = dequantize_output(y_q, output_details)
-
-        preds.append(y.squeeze())
-
-    return np.array(preds)
-
-# --------------------------------
-# Predict and analyze predictions
-# --------------------------------
+interpreter = tflite.load_model("models/maintenance_model_int8.tflite")
 
 true_y = test_y * MAX_RUL
 keras_y = keras_model.predict(test_X).flatten() * MAX_RUL
-tflite_y = tflite_predict(test_X) * MAX_RUL
+tflite_y = tflite.tflite_predict(interpreter, test_X) * MAX_RUL
 
 def nasa_score(true_y, pred_y):
     errors = pred_y - true_y

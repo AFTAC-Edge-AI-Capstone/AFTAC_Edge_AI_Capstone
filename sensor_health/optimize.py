@@ -1,7 +1,6 @@
 import tensorflow as tf
 import tensorflow_model_optimization as tfmot
 from utils import load_data, evaluate_model
-from config import DATASETS, MAX_RUL, WINDOW
 
 # -------
 # Config
@@ -13,12 +12,12 @@ DATASETS = [1]
 # ----------
 # Load data
 # ----------
-train_X, val_X, test_X, train_y, val_y, test_y, num_features = load_data(DATASETS, WINDOW, MAX_RUL)
+train_X, val_X, test_X, train_y, val_y, test_y, num_features = load_data(DATASETS, WINDOW, MAX_RUL, "data")
 
 # -------------------
 # Load trained model
 # -------------------
-model = tf.keras.models.load_model('models/maintenance_model.keras')
+model = tf.keras.models.load_model('maintenance_model.keras')
 
 # --------
 # PRUNING

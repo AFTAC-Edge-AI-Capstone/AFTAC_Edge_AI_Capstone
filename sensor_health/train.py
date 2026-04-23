@@ -10,7 +10,7 @@ pd.set_option('display.max_columns', None)
 
 EPOCHS = 35
 
-train_X, val_X, test_X, train_y, val_y, test_y, num_features = load_data(DATASETS, WINDOW, MAX_RUL)
+train_X, val_X, test_X, train_y, val_y, test_y, num_features = load_data(DATASETS, WINDOW, MAX_RUL, "data")
 
 # Import here, since tensorflow takes a while to import.
 from tensorflow.keras.models import Sequential

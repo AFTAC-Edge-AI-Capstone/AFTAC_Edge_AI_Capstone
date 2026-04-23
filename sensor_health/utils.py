@@ -5,7 +5,7 @@ from sklearn.model_selection import train_test_split
 from sklearn.preprocessing import StandardScaler
 from matplotlib import pyplot as plt
 
-def load_data(DATASETS, WINDOW, MAX_RUL):
+def load_data(DATASETS, WINDOW, MAX_RUL, data_folder):
     # ---------------------
     # Load data from files
     # ---------------------
@@ -18,19 +18,19 @@ def load_data(DATASETS, WINDOW, MAX_RUL):
     test_units = 0
 
     for i in DATASETS:
-        df = pd.read_csv(f'data/train_FD00{i}.txt', sep=r'\s+', header=None)
+        df = pd.read_csv(f'{data_folder}/train_FD00{i}.txt', sep=r'\s+', header=None)
         df.rename(columns={0: 'unit', 1: 'time'}, inplace=True)
         df['unit'] += train_units
         train_units += len(df['unit'].unique())
         train = pd.concat([train, df], ignore_index=True)
 
-        df = pd.read_csv(f'data/test_FD00{i}.txt', sep=r'\s+', header=None)
+        df = pd.read_csv(f'{data_folder}/test_FD00{i}.txt', sep=r'\s+', header=None)
         df.rename(columns={0: 'unit', 1: 'time'}, inplace=True)
         df['unit'] += test_units
         test_units += len(df['unit'].unique())
         test = pd.concat([test, df], ignore_index=True)
 
-        df = pd.read_csv(f'data/RUL_FD00{i}.txt', sep=r'\s+', header=None)
+        df = pd.read_csv(f'{data_folder}/RUL_FD00{i}.txt', sep=r'\s+', header=None)
         RUL = pd.concat([RUL, df], ignore_index=True)
 
     train.rename(columns={0: 'unit', 1: 'time'}, inplace=True)
