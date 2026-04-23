@@ -382,7 +382,7 @@ def render():
     
     
 
-    st.title("AFTAC Edge AI UI")
+    st.title("The First Audio Model")
     st.button("Choose random audio samples (4 random audio samples will be chosen)", on_click=get_random_audio_samples, args=())
 
     st.button("Play Sound 1", on_click=lambda: playsound(st.session_state.random_samples[0]))
