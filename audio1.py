@@ -362,13 +362,12 @@ def render():
     # random_samples = []
     # random_samples_labels = []
 
+    test_files, test_labels, train_data_paths, val_data_paths, class_weights = load_data_paths_and_labels()
+
     if "random_samples" not in st.session_state:
         st.session_state.random_samples = []
-
-    if "random_samples_labels" not in st.session_state:
         st.session_state.random_samples_labels = []
-
-    test_files, test_labels, train_data_paths, val_data_paths, class_weights = load_data_paths_and_labels()
+        get_random_audio_samples()
     
     # Feature Exatactor
     feature_extractor = AutoFeatureExtractor.from_pretrained(AST_MODEL_NAME)
