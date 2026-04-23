@@ -4,3 +4,15 @@ pandas
 streamlit
 scikit-learn
 matplotlib
+playsound3
+random
+torch
+soundfile
+librosa
+glob
+math
+typing
+transformers
+torchvision
+sklearn
+seaborn
