@@ -2,7 +2,7 @@ import streamlit as st
 
 @st.fragment
 def render():
-    st.title("The Predictive Maintenance Model")
+    st.title("The Second Audio Model")
     
     st.subheader("EfficientAT + Classifier Quantized to float16")
     st.image("audio/cm_aircraft_mn05_classifier_float16.png")

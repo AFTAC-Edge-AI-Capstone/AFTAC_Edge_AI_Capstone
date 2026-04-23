@@ -1,4 +1,5 @@
 import streamlit as st
+import time
 import pandas as pd
 import plotly.express as px
 from sensor_health.config import DATASETS, WINDOW, MAX_RUL
@@ -17,12 +18,17 @@ def predict(data):
 def render():
     st.title("The Predictive Maintenance Model")
 
-    if 'predictions' not in st.session_state:
-        st.session_state.predictions = None
+    if 'maintenance_X' not in st.session_state:
+        X_test, y_test = get_data()
+        st.session_state.maintenance_X = X_test
+        st.session_state.maintenance_y = y_test
+    X_test = st.session_state.maintenance_X
+    y_test = st.session_state.maintenance_y
 
-    X_test, y_test = get_data()
+    if 'maintenance_predictions' not in st.session_state:
+        st.session_state.maintenance_predictions = None
 
-    if st.session_state.predictions is None:
+    if st.session_state.maintenance_predictions is None:
         with st.container(horizontal_alignment="center"):
             st.markdown("""
                 <style>
@@ -38,7 +44,8 @@ def render():
             """, unsafe_allow_html=True)
             if st.button("Run predictions on test data"):
                 with st.spinner("Inference in progress..."):
-                    st.session_state.predictions = predict(X_test)
+                    time.sleep(1)
+                    st.session_state.maintenance_predictions = predict(X_test)
                     st.rerun(scope='fragment')
                 st.success("Done!")
     else:
@@ -48,7 +55,7 @@ def render():
         plot_df = pd.DataFrame({
             "Sample Index": list(range(len(y_test))),
             "Actual": y_test * MAX_RUL,
-            "Predicted": st.session_state.predictions * MAX_RUL
+            "Predicted": st.session_state.maintenance_predictions * MAX_RUL
         })
         
         # Scatter plot: Actual vs Predicted
@@ -67,40 +74,43 @@ def render():
         st.plotly_chart(fig_scatter, use_container_width=True)
 
         # --- SECTION 2: Individual Sample Inspection ---
-        render_detailed(X_test, y_test)
+        render_detailed()
 
 @st.fragment
-def render_detailed(X_test, y_test):
-        st.divider()
-        st.header("2. Detailed Sample Inspection")
+def render_detailed():
+    st.divider()
+    st.header("2. Detailed Sample Inspection")
 
-        selected_idx = st.selectbox(
-            "Select a test sample to examine:", 
-            options=list(range(len(X_test))),
-            format_func=lambda x: f"Sample {x}"
+    X_test = st.session_state.maintenance_X
+    y_test = st.session_state.maintenance_y
+
+    selected_idx = st.selectbox(
+        "Select a test sample to examine:", 
+        options=list(range(len(X_test))),
+        format_func=lambda x: f"Sample {x}"
+    )
+
+    # Layout for sample details
+    col1, col2 = st.columns([1, 3])
+
+    with col1:
+        st.metric("Actual RUL", f"{y_test[selected_idx]*MAX_RUL:.4f}")
+        current_pred = st.session_state.maintenance_predictions[selected_idx]
+        st.metric("Model Prediction", f"{current_pred*MAX_RUL:.4f}")
+
+    with col2:
+        # Prepare sensor data for plotting
+        # X_test[idx] is list[list[float]] -> [timestep][sensor]
+        sample_data = X_test[selected_idx]
+        df_sensors = pd.DataFrame(
+            sample_data, 
+            columns=[f"Sensor {i}" for i in range(len(sample_data[0]))]
         )
-
-        # Layout for sample details
-        col1, col2 = st.columns([1, 3])
-
-        with col1:
-            st.metric("Actual RUL", f"{y_test[selected_idx]*MAX_RUL:.4f}")
-            current_pred = st.session_state.predictions[selected_idx]
-            st.metric("Model Prediction", f"{current_pred*MAX_RUL:.4f}")
-
-        with col2:
-            # Prepare sensor data for plotting
-            # X_test[idx] is list[list[float]] -> [timestep][sensor]
-            sample_data = X_test[selected_idx]
-            df_sensors = pd.DataFrame(
-                sample_data, 
-                columns=[f"Sensor {i}" for i in range(len(sample_data[0]))]
-            )
-            df_sensors.index.name = "Timestep"
-            
-            fig_sensors = px.line(
-                df_sensors, 
-                title=f"Sensor Readings Over Time (Sample {selected_idx})",
-                labels={"value": "Reading", "variable": "Sensor"}
-            )
-            st.plotly_chart(fig_sensors, use_container_width=True)
+        df_sensors.index.name = "Timestep"
+        
+        fig_sensors = px.line(
+            df_sensors, 
+            title=f"Sensor Readings Over Time (Sample {selected_idx})",
+            labels={"value": "Reading", "variable": "Sensor"}
+        )
+        st.plotly_chart(fig_sensors, use_container_width=True)

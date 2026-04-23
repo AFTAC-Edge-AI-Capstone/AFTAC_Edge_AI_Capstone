@@ -36,4 +36,6 @@ table_html = """
 
 @st.fragment
 def render():
+    st.title("The Computer Vision Model")
+    
     st.markdown(re.sub(r'\n\s*\n', '\n', table_html), unsafe_allow_html=True)
