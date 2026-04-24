@@ -14,6 +14,15 @@ This project focuses on the development of a simulated multi-modal AI system des
 
 ## Setup
 
+### User Interface
+The Streamlit user interface's dependencies are managed with [uv](https://github.com/astral-sh/uv).
+To run the UI, run the following commands from the root of this repository.
+```bash
+uv sync # install/update dependencies
+source .venv/bin/activate # or equivalent for your shell
+streamlit run main.py
+```
+
 ### EffecientAT Audio Model
 Go to directory
 ```bash 
