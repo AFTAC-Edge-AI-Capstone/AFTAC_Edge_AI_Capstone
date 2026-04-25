@@ -34,7 +34,7 @@ LABEL_MAP = {
 
 AUDIO_EXTENSIONS = ['*.wav'] # File extensions to search for
 
-def load_data_paths_and_labels():
+def process_audio():
     """Load file paths, assign labels, split into train/val, and calculate class weights."""
     
     train_files = []
@@ -114,28 +114,14 @@ def load_data_paths_and_labels():
     train_data = list(zip(train_files, train_labels))
     val_data = list(zip(test_files, test_labels))
     
-    # --- Calculate class weights ---
-    # Needed for Categorical Cross-Entropy loss to handle class imbalance
     train_labels = [label for _, label in train_data]
     
-
     neg_count = len([e for e in train_labels if e == 0.0])
     drone_count = len([e for e in train_labels if e == 1.0])
     piston_count = len([e for e in train_labels if e == 2.0])
     turbofan_count = len([e for e in train_labels if e == 3.0])
     turboprop_count = len([e for e in train_labels if e == 4.0])
     turboshaft_count = len([e for e in train_labels if e == 5.0])
-    
-    # Inverse frequency weighting: pos_weight = total_samples / (2 * pos_class_count)
-    # This factor scales the loss of the positive class samples.
-    
-    total = len(train_labels)
-    drone_weight = (total / (6.0 * drone_count)) if drone_count > 0 else 1.0
-    neg_weight = (total / (6.0 * neg_count)) if neg_count > 0 else 1.0
-    piston_weight = (total / (6.0 * piston_count)) if piston_count > 0 else 1.0
-    turbofan_weight = (total / (6.0 * turbofan_count)) if turbofan_count > 0 else 1.0
-    turboprop_weight = (total / (6.0 * turboprop_count)) if turboprop_count > 0 else 1.0
-    turboshaft_weight = (total / (6.0 * turboshaft_count)) if turboshaft_count > 0 else 1.0
     
     print(f"\n--- Class Balance ---")
     print(f"Drone Count: {int(drone_count)} samples")
@@ -146,7 +132,5 @@ def load_data_paths_and_labels():
     print(f"Turboshaft Count: {int(turboshaft_count)} samples")
     print(f"{'='*70}\n")
     
-    return train_data, val_data, torch.tensor([drone_weight, neg_weight, piston_weight, turbofan_weight, turboprop_weight, turboshaft_weight], dtype=torch.float32)
-
 if __name__ == '__main__':
-    load_data_paths_and_labels()
+    process_audio()
