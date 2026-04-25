@@ -18,13 +18,6 @@ def predict(data):
 def render():
     st.title("The Predictive Maintenance Model")
 
-    if 'maintenance_X' not in st.session_state:
-        X_test, y_test = get_data()
-        st.session_state.maintenance_X = X_test
-        st.session_state.maintenance_y = y_test
-    X_test = st.session_state.maintenance_X
-    y_test = st.session_state.maintenance_y
-
     if 'maintenance_predictions' not in st.session_state:
         st.session_state.maintenance_predictions = None
 
@@ -43,6 +36,10 @@ def render():
                 <h3 class="muted-heading">Please predict to begin</h3>
             """, unsafe_allow_html=True)
             if st.button("Run predictions on test data"):
+                with st.spinner("Loading data..."):
+                    X_test, y_test = get_data()
+                    st.session_state.maintenance_X = X_test
+                    st.session_state.maintenance_y = y_test
                 with st.spinner("Inference in progress..."):
                     time.sleep(1)
                     st.session_state.maintenance_predictions = predict(X_test)
@@ -51,6 +48,9 @@ def render():
     else:
         # --- SECTION 1: Bulk Predictions ---
         st.header("1. Test Data Overview")
+        X_test = st.session_state.maintenance_X
+        y_test = st.session_state.maintenance_y
+        
         # Create DataFrame for plotting
         plot_df = pd.DataFrame({
             "Sample Index": list(range(len(y_test))),
