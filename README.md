@@ -23,6 +23,28 @@ source .venv/bin/activate # or equivalent for your shell
 streamlit run main.py
 ```
 
+### Efficient Net Based Audio Model
+```zsh
+cd ast
+```
+
+```zsh
+python -m venv .venv
+```
+
+```zsh
+source .venv/bin/activate
+```
+
+```zsh
+pip install -r requirements.txt
+```
+
+```zsh
+python3 validate_student_model.py
+```
+
+
 ### EffecientAT Audio Model
 Go to directory
 ```bash 
