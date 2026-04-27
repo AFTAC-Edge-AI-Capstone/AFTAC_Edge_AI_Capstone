@@ -8,6 +8,7 @@ import math
 from typing import Tuple, Dict, List
 
 DATA_DIRS = {
+    "Neg": "./datasets/neg",
     "Drone": "./datasets/drone",
     "Piston": "./datasets/piston", 
     "Turbofan": "./datasets/turbofan",

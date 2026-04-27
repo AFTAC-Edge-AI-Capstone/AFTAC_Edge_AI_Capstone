@@ -24,6 +24,7 @@ import seaborn as sns
 import matplotlib.pyplot as plt
 import torch_pruning as tp
 import tensorflow as tf
+import time
 
 
 # device = torch.device("cuda" if torch.cuda.is_available() else "cpu")
@@ -281,6 +282,7 @@ class EfficientNetSpectrogramStudent(nn.Module):
         return self.efficientnet(input_values)
 
 def validate(model, val_dataloader):
+    
     model.eval()
     correct = 0
     total = 0
@@ -288,11 +290,11 @@ def validate(model, val_dataloader):
     predictions = []
     labels = []
 
+    start_time = time.perf_counter()
     with torch.no_grad():
         for batch in val_dataloader:
             input_data = {k: v.to(device) for k, v in batch.items()}
 
-            print(input_data['input_values'].shape)
             # Use device.type as a POSITIONAL argument for autocast
             with autocast(device.type, dtype=torch.float16):
                 student_logits = model(input_data['input_values'])
@@ -308,6 +310,9 @@ def validate(model, val_dataloader):
                     correct += 1
             total += curr_labels.size(0)
 
+    end_time = time.perf_counter()
+
+    print(f"Time elapsed: {end_time - start_time:.2f}")
     val_accuracy = correct / total if total > 0 else 0
 
     print(total)
@@ -352,7 +357,6 @@ def validate(model, val_dataloader):
     print(f"Turboprop class, precision: {precision_recall_array[4][0]/(precision_recall_array[4][0] + precision_recall_array[4][1])}, recall: {precision_recall_array[4][0]/(precision_recall_array[4][0] + precision_recall_array[4][2])} \n")
     print(f"Turboshaft class, precision: {precision_recall_array[5][0]/(precision_recall_array[5][0] + precision_recall_array[5][1])}, recall: {precision_recall_array[5][0]/(precision_recall_array[5][0] + precision_recall_array[5][2])} \n")
 
-
     # # Find micro averages
     # precision_micro_avg = 
     # recall_micro_avg = 0
@@ -373,14 +377,13 @@ def validate_tflite_model(val_dataloader):
     predictions = []
     labels = []
 
-    
+    start_time = time.perf_counter()
     for batch in val_dataloader:
         input_data = {k: v for k, v in batch.items()}
 
         # print(input_data['input_values'].shape)
 
         input_numpy = input_data['input_values'].numpy()
-        print(input_numpy.shape)
 
 
         input_index = interpreter.get_input_details()[0]['index']
@@ -400,6 +403,9 @@ def validate_tflite_model(val_dataloader):
                 correct += 1
         total += curr_labels.size(0)
         # print(output)
+    
+    end_time = time.perf_counter()
+    print(f"Time elapsed: {end_time - start_time:.2f}")
 
     val_accuracy = correct / total if total > 0 else 0
 
@@ -433,7 +439,7 @@ if __name__ == '__main__':
         drop_last=True
     )
     
-    # validate(student_model, val_dataloader)
+    validate(student_model, val_dataloader)
 
 
 
