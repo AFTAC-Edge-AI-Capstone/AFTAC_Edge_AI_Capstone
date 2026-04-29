@@ -24,22 +24,28 @@ streamlit run main.py
 ```
 
 ### Efficient Net Based Audio Model
+
+This directory contains the Efficient Net Based Audio Model
 ```zsh
 cd ast
 ```
 
+Create virtaul environment
 ```zsh
 python -m venv .venv
 ```
 
+Activate virtaul environment
 ```zsh
 source .venv/bin/activate
 ```
 
+Install dependencies
 ```zsh
 pip install -r requirements.txt
 ```
 
+This python file validates and benchmarks the uncompressed and compressed models on CPU
 ```zsh
 python3 validate_student_model.py
 ```
